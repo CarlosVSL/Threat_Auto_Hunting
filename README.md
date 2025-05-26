@@ -108,28 +108,6 @@ kubectl apply -f deployment/k8s/orchestrator-deployment.yaml
 
 ---
 
-## Contribuir
-
-1. Crea una rama de feature:  
-```bash
-git checkout -b feature/tu-cambio
-```
-
-2. Asegura estilo y calidad:  
-```bash
-flake8   # Python
-yamllint # YAML
-```
-3. Instala hooks de pre-commit:  
-```bash
-pip install pre-commit
-pre-commit install
-```
-
-4. Abre un Pull Request describiendo tus cambios y asigna revisores.
-
----
-
 ## Licencia
 
 MIT © CarlosVSL  
