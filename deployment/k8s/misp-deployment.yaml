@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: misp-db-secret
+  namespace: threat-hunting
+type: Opaque
+stringData:
+  mysql-root-password: "CHANGE_ME_ROOT"
+  mysql-misp-password: "CHANGE_ME_USER"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: threat-hunting
+spec:
+  ports:
+    - port: 3306
+      name: mysql
+  selector:
+    app: mariadb
+  clusterIP: None  # Headless for StatefulSet
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb
+  namespace: threat-hunting
+spec:
+  serviceName: mariadb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:10.5
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: misp-db-secret
+                  key: mysql-root-password
+            - name: MYSQL_DATABASE
+              value: misp
+            - name: MYSQL_USER
+              value: misp
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: misp-db-secret
+                  key: mysql-misp-password
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: misp
+  namespace: threat-hunting
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+  selector:
+    app: misp
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: misp
+  namespace: threat-hunting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: misp
+  template:
+    metadata:
+      labels:
+        app: misp
+    spec:
+      containers:
+        - name: misp
+          image: harvarditsecurity/misp:2.4
+          env:
+            - name: MYSQL_HOST
+              value: mariadb
+            - name: MYSQL_DATABASE
+              value: misp
+            - name: MYSQL_USER
+              value: misp
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: misp-db-secret
+                  key: mysql-misp-password
+            - name: TZ
+              value: UTC
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: misp-data
+              mountPath: /var/www/MISP
+      volumes:
+        - name: misp-data
+          persistentVolumeClaim:
+            claimName: misp-data-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: misp-data-pvc
+  namespace: threat-hunting
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+

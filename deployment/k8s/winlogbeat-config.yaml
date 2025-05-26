@@ -1,0 +1,38 @@
+# deployment/k8s/winlogbeat-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: winlogbeat-config
+  namespace: threat-hunting
+data:
+  winlogbeat.yml: |-
+    winlogbeat.event_logs:
+      - name: Application
+        ignore_older: 72h
+      - name: Security
+        ignore_older: 72h
+      - name: System
+        ignore_older: 72h
+
+    processors:
+      - add_host_metadata: ~
+      - add_cloud_metadata: ~
+      - drop_event:
+          when:
+            equals.winlog.channel: System
+
+    setup.template.name: "winlogbeat"
+    setup.template.pattern: "winlogbeat-*"
+    setup.dashboards.enabled: true
+    setup.kibana.host: "kibana:5601"
+
+    output.logstash:
+      hosts: ["logstash:5045"]
+      pipeline: "winlogbeat-pipeline"
+
+    logging.files:
+      path: "/var/log/winlogbeat"
+      name: "winlogbeat.log"
+      keepfiles: 7
+      rotateeverybytes: 10485760
+

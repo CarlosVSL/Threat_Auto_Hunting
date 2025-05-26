@@ -1,0 +1,24 @@
+{
+  "job_id": "anomaly_traffic",
+  "description": "Detect anomalies in network traffic volume per source IP",
+  "analysis_config": {
+    "bucket_span": "5m",
+    "detectors": [
+      {
+        "function": "sum",
+        "field_name": "netflow.bytes",
+        "detector_description": "Sum of network bytes per source IP",
+        "partition_field_name": "netflow.ipv4_src_addr"
+      }
+    ],
+    "influencers": ["netflow.ipv4_src_addr"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "datafeed_config": {
+    "datafeed_id": "datafeed-anomaly_traffic",
+    "indices": ["netflow-*"],
+    "query": { "match_all": {} }
+  }
+}

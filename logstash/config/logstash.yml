@@ -1,0 +1,35 @@
+###################### Logstash Configuration ######################
+# Docs: https://www.elastic.co/guide/en/logstash/current/settings.html
+
+# ------------------- Paths -------------------
+path.data: /var/lib/logstash
+path.logs: /var/log/logstash
+
+# ------------------ HTTP API ------------------
+# Expose monitoring API on all interfaces
+http.host: "0.0.0.0"
+# Default port range for monitoring API
+http.port: 9600-9700
+
+# ------------------ Pipeline ------------------
+# Enable automatic reloading of pipeline configs (pipelines/*.conf)
+config.reload.automatic: true
+config.reload.interval: 10s
+
+pipeline.batch.size: 125
+pipeline.batch.delay: 5
+pipeline.workers: 2
+# Control ordering of batches (auto preserves input order when possible)
+pipeline.ordered: auto
+
+# ---------------- X-Pack Monitoring ----------------
+# Uncomment to send Logstash metrics to Elasticsearch
+# xpack.monitoring.enabled: true
+# xpack.monitoring.elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# ---------------- SSL for Beats input ----------------
+# Uncomment to secure Beats connections
+# http.ssl.enabled: true
+# http.ssl.key: /etc/logstash/ssl/logstash.key
+# http.ssl.certificate: /etc/logstash/ssl/logstash.crt
+# Logstash config

@@ -1,0 +1,50 @@
+# deployment/k8s/packetbeat-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: packetbeat-config
+  namespace: threat-hunting
+data:
+  packetbeat.yml: |-
+    packetbeat.interfaces.device: any
+
+    packetbeat.protocols:
+      - type: http
+        ports: [80, 8080, 8000, 5000, 8002]
+      - type: mysql
+        ports: [3306]
+      - type: redis
+        ports: [6379]
+      - type: dns
+        ports: [53]
+      - type: tls
+        ports: [443, 993, 995, 8443]
+      - type: grpc
+        ports: [50051]
+      - type: kafka
+        ports: [9092]
+
+    processors:
+      - add_host_metadata: ~
+      - add_cloud_metadata: ~
+      - drop_event:
+          when:
+            or:
+              - equals.event.type: icmp
+              - equals.event.type: arp
+
+    setup.template.name: "packetbeat"
+    setup.template.pattern: "packetbeat-*"
+    setup.dashboards.enabled: true
+    setup.kibana.host: "kibana:5601"
+
+    output.logstash:
+      hosts: ["logstash:5044"]
+      pipeline: "packetbeat-pipeline"
+
+    logging.files:
+      path: "/var/log/packetbeat"
+      name: "packetbeat.log"
+      keepfiles: 7
+      rotateeverybytes: 10485760
+

@@ -1,0 +1,17 @@
+version: '3.7'
+
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: cowrie
+    restart: unless-stopped
+    volumes:
+      # Mount custom config
+      - ./cowrie.cfg:/etc/cowrie/cowrie.cfg:ro
+      # Persist logs in host directory for Filebeat ingestion
+      - ./log:/cowrie/log
+    ports:
+      # Expose SSH honeypot on port 2222
+      - "2222:2222"
+
+# Use a bind mount for simplicity; log directory created on host

@@ -1,0 +1,69 @@
+###################### Filebeat Configuration ######################
+# Docs: https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-reference-yml.html
+
+# Configure modules to load. Modules are defined in modules.d/*.yml files
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: true       # Enable dynamic reloading of modules config
+  reload.period: 10s
+
+#=========================== Filebeat Inputs =============================
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/*.log
+    - /var/log/**/*.log
+  exclude_files: ['*.gz']
+  multiline:
+    pattern: '^[[:space:]]'
+    match: after
+
+#=========================== Processors =============================
+processors:
+- add_host_metadata:
+    when.not.contains.tags: forwarded
+- add_cloud_metadata: ~
+
+#=========================== Elasticsearch Template =====================
+setup.template.settings:
+  index.number_of_shards: 1
+  index.codec: best_compression
+
+#=========================== Kibana =====================================
+setup.kibana:
+  host: "kibana:5601"
+
+# Enable dashboards setup
+setup.dashboards.enabled: true
+setup.dashboards.index: ".kibana"
+
+#=========================== Outputs ====================================
+# Send logs to Logstash for central processing
+output.logstash:
+  hosts: ["logstash:5044"]
+  # Specify the pipeline ID defined in pipelines/filebeat-pipeline.json
+  pipeline: "filebeat-pipeline"
+  #ssl.enabled: true
+  #ssl.certificate_authorities: ["/etc/pki/root/ca.pem"]
+
+# Uncomment to send directly to Elasticsearch
+#output.elasticsearch:
+#  hosts: ["http://elasticsearch:9200"]
+#  username: "elastic"
+#  password: "changeme"
+
+#=========================== Logging ====================================
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+# Optional monitoring (requires X-Pack monitoring)
+#monitoring.enabled: true
+#monitoring.elasticsearch:
+#  hosts: ["http://elasticsearch:9200"]
+# Filebeat main configuration

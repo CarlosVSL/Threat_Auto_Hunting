@@ -1,0 +1,183 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: threat-hunting
+data:
+  filebeat.yml: |
+    # Filebeat config from beats/filebeat/filebeat.yml
+    filebeat.config.modules:
+      path: /usr/share/filebeat/modules.d/*.yml
+      reload.enabled: true
+      reload.period: 10s
+    filebeat.inputs:
+    - type: log
+      enabled: true
+      paths:
+        - /var/log/*.log
+        - /var/log/**/*.log
+      exclude_files: ['*.gz']
+      multiline:
+        pattern: '^[[:space:]]'
+        match: after
+    processors:
+    - add_host_metadata: ~
+    - add_cloud_metadata: ~
+    setup.template.settings:
+      index.number_of_shards: 1
+      index.codec: best_compression
+    setup.kibana:
+      host: "kibana:5601"
+    setup.dashboards.enabled: true
+    setup.dashboards.index: ".kibana"
+    output.logstash:
+      hosts: ["logstash:5044"]
+      pipeline: "filebeat-pipeline"
+    logging.level: info
+    logging.to_files: true
+    logging.files:
+      path: /var/log/filebeat
+      name: filebeat
+      keepfiles: 7
+      permissions: 0644
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: filebeat
+  namespace: threat-hunting
+spec:
+  selector:
+    matchLabels:
+      app: filebeat
+  template:
+    metadata:
+      labels:
+        app: filebeat
+    spec:
+      serviceAccountName: elastic-beats
+      containers:
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:7.10.0
+        args: ["-e", "-c", "/usr/share/filebeat/filebeat.yml"]
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/filebeat/filebeat.yml
+          subPath: filebeat.yml
+        - name: modules
+          mountPath: /usr/share/filebeat/modules.d
+        - name: pipelines
+          mountPath: /usr/share/filebeat/pipelines
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: data
+          mountPath: /usr/share/filebeat/data
+      volumes:
+      - name: config
+        configMap:
+          name: filebeat-config
+      - name: modules
+        hostPath:
+          path: /etc/filebeat/modules.d
+          type: DirectoryOrCreate
+      - name: pipelines
+        hostPath:
+          path: /etc/filebeat/pipelines
+          type: DirectoryOrCreate
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: data
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: packetbeat
+  namespace: threat-hunting
+spec:
+  selector:
+    matchLabels:
+      app: packetbeat
+  template:
+    metadata:
+      labels:
+        app: packetbeat
+    spec:
+      hostNetwork: true
+      hostPID: true
+      serviceAccountName: elastic-beats
+      containers:
+      - name: packetbeat
+        image: docker.elastic.co/beats/packetbeat:7.10.0
+        args: ["-e", "-c", "/usr/share/packetbeat/packetbeat.yml"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/packetbeat/packetbeat.yml
+          subPath: packetbeat.yml
+        - name: pipelines
+          mountPath: /usr/share/packetbeat/pipelines
+        - name: host-root
+          mountPath: /host
+          readOnly: true
+        - name: data
+          mountPath: /usr/share/packetbeat/data
+      volumes:
+      - name: config
+        configMap:
+          name: packetbeat-config
+      - name: pipelines
+        hostPath:
+          path: /etc/packetbeat/pipelines
+          type: DirectoryOrCreate
+      - name: host-root
+        hostPath:
+          path: /
+      - name: data
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: winlogbeat
+  namespace: threat-hunting
+spec:
+  selector:
+    matchLabels:
+      app: winlogbeat
+  template:
+    metadata:
+      labels:
+        app: winlogbeat
+    spec:
+      serviceAccountName: elastic-beats
+      containers:
+      - name: winlogbeat
+        image: docker.elastic.co/beats/winlogbeat:7.10.0
+        args: ["-e", "-c", "/usr/share/winlogbeat/winlogbeat.yml"]
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/winlogbeat/winlogbeat.yml
+          subPath: winlogbeat.yml
+        - name: pipelines
+          mountPath: /usr/share/winlogbeat/pipelines
+        - name: data
+          mountPath: /usr/share/winlogbeat/data
+      volumes:
+      - name: config
+        configMap:
+          name: winlogbeat-config
+      - name: pipelines
+        hostPath:
+          path: /etc/winlogbeat/pipelines
+          type: DirectoryOrCreate
+      - name: data
+        emptyDir: {}
+

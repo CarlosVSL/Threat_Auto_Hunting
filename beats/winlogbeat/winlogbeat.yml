@@ -1,0 +1,44 @@
+###################### Winlogbeat Configuration ######################
+# Docs: https://www.elastic.co/guide/en/beats/winlogbeat/current/winlogbeat-reference-yml.html
+
+winlogbeat.event_logs:
+  - name: Application
+  - name: Security
+  - name: System
+
+#=========================== Processors =============================
+processors:
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~
+  - drop_event.when.series:
+      equals:
+        winlog.event_data.TargetUserName: SYSTEM
+
+#=========================== Elasticsearch Template =====================
+setup.template.settings:
+  index.number_of_shards: 1
+  index.codec: best_compression
+
+#=========================== Kibana =====================================
+setup.kibana:
+  host: "kibana:5601"
+
+# Enable dashboard loading
+setup.dashboards.enabled: true
+setup.dashboards.index: ".kibana"
+
+#=========================== Outputs ====================================
+# Send events to Logstash for further processing
+output.logstash:
+  hosts: ["logstash:5044"]
+  pipeline: "winlogbeat-pipeline"
+
+#=========================== Logging ====================================
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/winlogbeat
+  name: winlogbeat
+  keepfiles: 7
+  permissions: 0644
+

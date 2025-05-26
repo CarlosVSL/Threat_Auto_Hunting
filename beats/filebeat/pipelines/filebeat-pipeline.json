@@ -1,0 +1,71 @@
+{
+  "description": "Elasticsearch ingest pipeline for Filebeat events",
+  "processors": [
+    {
+      "grok": {
+        "field": "message",
+        "patterns": [
+          "%{COMMONAPACHELOG}",
+          "%{COMBINEDAPACHELOG}",
+          "%{SYSLOGLINE}",
+          "%{GROKBASE}"
+        ],
+        "ignore_missing": true,
+        "on_failure": [
+          {
+            "set": {
+              "field": "error.message",
+              "value": "{{ _ingest.on_failure_message }}"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "date": {
+        "field": "timestamp",
+        "target_field": "@timestamp",
+        "formats": [
+          "ISO8601",
+          "dd/MMM/yyyy:HH:mm:ss Z"
+        ],
+        "ignore_failure": true
+      }
+    },
+    {
+      "geoip": {
+        "field": "source.ip",
+        "target_field": "source.geo",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "user_agent": {
+        "field": "http.request.user_agent",
+        "target_field": "user_agent",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "remove": {
+        "field": ["message", "timestamp"]
+      }
+    },
+    {
+      "set": {
+        "field": "event.ingested",
+        "value": "{{ _ingest.timestamp }}"
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "error.pipeline",
+        "value": "{{ _ingest.on_failure_message }}"
+      }
+    }
+  ]
+}

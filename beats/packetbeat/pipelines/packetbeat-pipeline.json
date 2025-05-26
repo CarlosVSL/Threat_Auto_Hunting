@@ -1,0 +1,48 @@
+{
+  "description": "Elasticsearch ingest pipeline for Packetbeat events",
+  "processors": [
+    {
+      "geoip": {
+        "field": "source.ip",
+        "target_field": "source.geo",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "geoip": {
+        "field": "destination.ip",
+        "target_field": "destination.geo",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "rename": {
+        "field": "network.transport",
+        "target_field": "network.transport_protocol",
+        "ignore_missing": true
+      }
+    },
+    {
+      "remove": {
+        "field": ["network.packet"]
+      }
+    },
+    {
+      "set": {
+        "field": "event.ingested",
+        "value": "{{ _ingest.timestamp }}"
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "error.pipeline",
+        "value": "{{ _ingest.on_failure_message }}"
+      }
+    }
+  ]
+}
+

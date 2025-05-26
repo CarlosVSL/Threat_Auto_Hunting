@@ -1,0 +1,8 @@
+aws:
+  access_key: GSD
+  secret_key: FG
+  region: DS
+restrictive_security_group_id: FG
+firewall:
+  api_url: D
+  api_key: FGDSF

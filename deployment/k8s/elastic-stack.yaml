@@ -1,0 +1,193 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: threat-hunting
+---
+# Elasticsearch StatefulSet and Service
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: threat-hunting
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.10.0
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: ES_JAVA_OPTS
+          value: -Xms1g -Xmx1g
+        ports:
+        - containerPort: 9200
+          name: http
+        - containerPort: 9300
+          name: transport
+        volumeMounts:
+        - name: esdata
+          mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+  - metadata:
+      name: esdata
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: threat-hunting
+spec:
+  ports:
+  - port: 9200
+    name: http
+  - port: 9300
+    name: transport
+  selector:
+    app: elasticsearch
+  type: ClusterIP
+---
+# Kibana Deployment and Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: threat-hunting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+      - name: kibana
+        image: docker.elastic.co/kibana/kibana:7.10.0
+        env:
+        - name: ELASTICSEARCH_URL
+          value: http://elasticsearch.threat-hunting.svc.cluster.local:9200
+        ports:
+        - containerPort: 5601
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: threat-hunting
+spec:
+  ports:
+  - port: 5601
+    name: http
+  selector:
+    app: kibana
+  type: ClusterIP
+---
+# Logstash Deployment and Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  namespace: threat-hunting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+      - name: logstash
+        image: docker.elastic.co/logstash/logstash:7.10.0
+        ports:
+        - containerPort: 5044
+          name: beats-input
+        - containerPort: 5045
+          name: endpoint-input
+        - containerPort: 2055
+          name: netflow-input
+          protocol: UDP
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/logstash/config/logstash.yml
+          subPath: logstash.yml
+        - name: pipelines
+          mountPath: /usr/share/logstash/pipeline
+      volumes:
+      - name: config
+        configMap:
+          name: logstash-config
+      - name: pipelines
+        configMap:
+          name: logstash-pipelines
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+  namespace: threat-hunting
+spec:
+  ports:
+  - port: 5044
+    name: beats-input
+  - port: 5045
+    name: endpoint-input
+  - port: 2055
+    name: netflow-input
+    protocol: UDP
+  selector:
+    app: logstash
+  type: ClusterIP
+---
+# ConfigMaps for Logstash config and pipelines
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+  namespace: threat-hunting
+data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    config.reload.automatic: true
+    config.reload.interval: 10s
+    pipeline.workers: 2
+    pipeline.batch.size: 125
+    pipeline.batch.delay: 5
+    pipeline.ordered: auto
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipelines
+  namespace: threat-hunting
+data:
+  01-syslog.conf: |
+    input { beats { port => 5044 type => "syslog" } }
+    filter { if [type] == "syslog" { grok { match => { "message" => "%{SYSLOGLINE}" } } ... } }
+  02-netflow.conf: |
+    input { udp { port => 2055 codec => netflow { versions => [5,9,10] } type => "netflow" } }
+    filter { if [type] == "netflow" { geoip { source => "[netflow][ipv4_src_addr]" } } }
+  03-endpoint.conf: |
+    input { beats { port => 5045 type => "endpoint" } }
+    filter { if [type] == "endpoint" { json { source => "message" target => "event" } } }
+

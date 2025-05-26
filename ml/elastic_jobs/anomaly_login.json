@@ -1,0 +1,31 @@
+{
+  "job_id": "anomaly_login",
+  "description": "Detect anomalies in SSH login events per host",
+  "analysis_config": {
+    "bucket_span": "5m",
+    "detectors": [
+      {
+        "function": "count",
+        "detector_description": "Count of SSH login events partitioned by host",
+        "partition_field_name": "host"
+      }
+    ],
+    "influencers": ["host"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "datafeed_config": {
+    "datafeed_id": "datafeed-anomaly_login",
+    "indices": ["syslog-*"],
+    "query": {
+      "bool": {
+        "filter": [
+          { "term": { "program": "sshd" } },
+          { "match_phrase": { "syslog_message": "Failed password" } }
+        ]
+      }
+    }
+  }
+}
+

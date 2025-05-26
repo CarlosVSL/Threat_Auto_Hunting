@@ -1,0 +1,3 @@
+{"type":"index-pattern","id":"logs-*","attributes":{"title":"logs-*","timeFieldName":"@timestamp","fields":"\[]"},"migrationVersion":{},"coreMigrationVersion":"7.10.0","references":\[]}
+{"type":"dashboard","id":"mitre-attack-dashboard","attributes":{"title":"MITRE ATT\&CK Dashboard","hits":0,"description":"Guided threat hunting dashboard based on MITRE ATT\&CK techniques","panelsJSON":"\[]","optionsJSON":"{"darkTheme"\:false}","version":1,"timeRestore"\:false,"kibanaSavedObjectMeta":{"searchSourceJSON":"{"query":{"query":"","language":"kuery"},"filter":\[]}"}},"references":\[{"name":"kibanaSavedObjectMeta.searchSourceJSON.index","type":"index-pattern","id":"logs-\*"}]}
+

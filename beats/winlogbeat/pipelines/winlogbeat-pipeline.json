@@ -1,0 +1,40 @@
+{
+  "description": "Elasticsearch ingest pipeline for Winlogbeat events",
+  "processors": [
+    {
+      "grok": {
+        "field": "message",
+        "patterns": ["%{WINLOG_EVENTID:event.code}", "%{GREEDYDATA:winlog.message}"],
+        "ignore_missing": true,
+        "on_failure": [
+          { "set": { "field": "error.message", "value": "{{ _ingest.on_failure_message }}" } }
+        ]
+      }
+    },
+    {
+      "date": {
+        "field": "@timestamp",
+        "formats": ["ISO8601"],
+        "ignore_failure": true
+      }
+    },
+    {
+      "geoip": {
+        "field": "host.ip",
+        "target_field": "host.geo",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "remove": { "field": ["message"] }
+    },
+    {
+      "set": { "field": "event.ingested", "value": "{{ _ingest.timestamp }}" }
+    }
+  ],
+  "on_failure": [
+    { "set": { "field": "error.pipeline", "value": "{{ _ingest.on_failure_message }}" } }
+  ]
+}
+

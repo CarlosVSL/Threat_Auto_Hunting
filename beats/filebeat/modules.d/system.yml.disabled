@@ -1,0 +1,36 @@
+# Module: system
+# Documentation: https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html
+
+- module: system
+  # System metrics (CPU, load, memory, network, processes, sockets)
+  metricsets:
+    - cpu
+    - load
+    - memory
+    - network
+    - process
+    - socket_summary
+  enabled: false
+  period: 10s
+  # Include all processes or filter by regex
+  processes: ['.*']
+  process.include_top_n:
+    by_cpu: 5
+    by_memory: 5
+
+- module: system
+  # Syslog logs
+  syslog:
+    enabled: false
+    var.paths:
+      - /var/log/syslog
+      - /var/log/messages
+
+- module: system
+  # Auth logs (Linux and BSD)
+  auth:
+    enabled: false
+    var.paths:
+      - /var/log/auth.log
+      - /var/log/secure
+# Example module disabled

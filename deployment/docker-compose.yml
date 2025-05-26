@@ -1,0 +1,107 @@
+
+env_file:
+  - ../.env
+
+networks:
+  threat-net:
+    driver: bridge
+
+volumes:
+  esdata:
+  filebeat-data:
+  packetbeat-data:
+  winlogbeat-data:
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - threat-net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.10.0
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - threat-net
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.10.0
+    container_name: logstash
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipelines:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5044:5044"   # Filebeat input
+      - "5045:5045"   # Endpoint logs input
+      - "2055:2055/udp" # Netflow UDP input
+    networks:
+      - threat-net
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.10.0
+    container_name: filebeat
+    user: root
+    depends_on:
+      - logstash
+    volumes:
+      - ./beats/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./beats/filebeat/modules.d:/usr/share/filebeat/modules.d:ro
+      - ./beats/filebeat/pipelines:/usr/share/filebeat/pipelines:ro
+      - filebeat-data:/usr/share/filebeat/data
+      - /var/log:/var/log:ro
+    networks:
+      - threat-net
+
+  packetbeat:
+    image: docker.elastic.co/beats/packetbeat:7.10.0
+    container_name: packetbeat
+    user: root
+    depends_on:
+      - logstash
+    volumes:
+      - ./beats/packetbeat/packetbeat.yml:/usr/share/packetbeat/packetbeat.yml:ro
+      - ./beats/packetbeat/pipelines:/usr/share/packetbeat/pipelines:ro
+      - packetbeat-data:/usr/share/packetbeat/data
+    networks:
+      - threat-net
+
+  winlogbeat:
+    image: docker.elastic.co/beats/winlogbeat:7.10.0
+    container_name: winlogbeat
+    user: root
+    depends_on:
+      - logstash
+    volumes:
+      - ./beats/winlogbeat/winlogbeat.yml:/usr/share/winlogbeat/winlogbeat.yml:ro
+      - ./beats/winlogbeat/pipelines:/usr/share/winlogbeat/pipelines:ro
+      - winlogbeat-data:/usr/share/winlogbeat/data
+    networks:
+      - threat-net
+
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: cowrie
+    restart: unless-stopped
+    volumes:
+      - ./honeypots/cowrie/cowrie.cfg:/etc/cowrie/cowrie.cfg:ro
+      - ./honeypots/cowrie/log:/cowrie/log
+    ports:
+      - "2222:2222"
+    networks:
+      - threat-net

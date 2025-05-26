@@ -1,0 +1,80 @@
+###################### Packetbeat Configuration ######################
+# Docs: https://www.elastic.co/guide/en/beats/packetbeat/current/packetbeat-reference-yml.html
+
+# Interfaces to capture network traffic
+packetbeat.interfaces:
+  device: any           # capture on all interfaces
+  # or specify device name, e.g. "eth0"
+  # type: af_packet     # high-performance capture
+  # buffer_size: 2048
+
+#=========================== Protocols ==================================
+# Enable or disable protocol decoders
+packetbeat.protocols:
+  - type: http
+    ports: [80, 8080, 8000, 5000, 8002]
+  - type: mysql
+    ports: [3306]
+  - type: redis
+    ports: [6379]
+  - type: dns
+    ports: [53]
+  - type: kafka
+    hosts: ["localhost:9092"]  # adjust if Kafka capture encoder
+  - type: mysql
+    ports: [3306]
+  - type: tls
+    ports: [443]
+  - type: grpc
+    ports: [50051]
+
+#=========================== Processors =============================
+processors:
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~
+  - drop_event.when.or:
+      - equals:
+          network.transport: "icmp"
+      - equals:
+          network.transport: "arp"
+
+#=========================== Setup ======================================
+setup.template.settings:
+  index.number_of_shards: 1
+  index.codec: best_compression
+
+setup.kibana:
+  host: "kibana:5601"
+
+# Enable dashboards setup
+setup.dashboards.enabled: true
+setup.dashboards.index: ".kibana"
+
+#=========================== Outputs ====================================
+# Send network events to Logstash pipeline for processing
+output.logstash:
+  hosts: ["logstash:5044"]
+  pipeline: "packetbeat-pipeline"
+  #ssl.enabled: true
+  #ssl.certificate_authorities: ["/etc/pki/root/ca.pem"]
+
+# Uncomment to send directly to Elasticsearch
+#output.elasticsearch:
+#  hosts: ["http://elasticsearch:9200"]
+#  username: "elastic"
+#  password: "changeme"
+
+#=========================== Logging ====================================
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/packetbeat
+  name: packetbeat
+  keepfiles: 7
+  permissions: 0644
+
+# Optional monitoring
+#monitoring.enabled: true
+#monitoring.elasticsearch:
+#  hosts: ["http://elasticsearch:9200"]
+# Packetbeat main configuration
